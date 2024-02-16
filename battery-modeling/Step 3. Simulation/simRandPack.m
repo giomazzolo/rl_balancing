@@ -12,7 +12,9 @@ function packData = simRandPack(Ns,Nc,cycleFile,model,randOptions)
 
 tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
 sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
-profile = load(cycleFile); % e.g., 'uddsPower.txt'
+profile = load(cycleFile, '-ascii'); % e.g., 'uddsPower.txt'
+
+if ~isdeployed; addpath ..\helper_function\; end
 
 % ------------------------------------------------------------------
 % Create storage for all cell states after completion of each cycle
@@ -32,7 +34,7 @@ ik = zeros([Ns 1]); % current experienced by each cell
 if tOpt % set to "if 1," to execute, or "if 0," to skip this code
     T = 22.5 + 5*rand([Ns 1]);
 else
-    T = 25*ones([Ns 1]);
+    T = 35*ones([Ns 1]);
 end
 % Set self-discharge "cell temperature"
 Tsd = T - 5 + 10*rand([Ns 1]);
@@ -84,10 +86,11 @@ while theCycle <= Nc
     v = v - r.*irc; % add in capacitor voltages
     V = sum(v); % Total voltage excluding I*R
     vt = v-ik.*r0; % Cell terminal voltages
+    % Hystheresis can be added here
     switch( theState )
         case 'discharge'
             % Get instantaneous demanded pack power, repeating profile
-            P = profile(rem(disCnt,length(profile))+1);
+            P = profile(rem(disCnt,length(profile))+1) * 1.5;
             % Compute demanded pack current based on unloaded voltage
             I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
             % Default cell current = pack current
@@ -95,7 +98,7 @@ while theCycle <= Nc
             if I < 0 % If we happen to be charging this momement
                 ik = ik.*eta;
             end
-            if min(z) <= minSOC || min(vt) < minVlim, % stop discharging
+            if min(z) <= minSOC || min(vt) < minVlim % stop discharging
                 theState = 'charge';
                 chargeFactor = 1;
                 ik = 0*ik;
@@ -108,15 +111,15 @@ while theCycle <= Nc
             I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
             I = max(-min(q),I); % limit to 1C charge rate max
             ik = I*eta; % Charge coulombic eff.
-            if max(vt)>=maxVlim,
-                if chargeFactor > 32, % bail after 6.6kW/32 charge
+            if max(vt)>=maxVlim
+                if chargeFactor > 32 % bail after 6.6kW/32 charge
                     packData.storez(:,theCycle) = z;
                     packData.storeirc(:,theCycle) = irc;
                     theState = 'discharge';
                     disCnt = 0;
                     ik = 0*ik;
                     theCycle = theCycle + 1;
-                    if theCycle <= Nc,vbvggf
+                    if theCycle <= Nc
                         fprintf('\n Cycle = %d, discharging... ',theCycle);
                     end
                 end
