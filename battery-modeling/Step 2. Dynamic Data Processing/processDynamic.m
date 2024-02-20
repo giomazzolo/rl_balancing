@@ -51,11 +51,11 @@ function model = processDynamic(data,model,numpoles,doHyst)
   alletas  = 0*alltemps;
   allQs    = 0*alltemps;
   
-  ind25 = find(alltemps == 35); 
+  ind25 = find(alltemps == 25); 
   if isempty(ind25)
-    error('Must have a test at 35degC');
+    error('Must have a test at 25degC');
   end
-  not25 = find(alltemps ~= 35);
+  not25 = find(alltemps ~= 25);
   
   for k = ind25   
     totDisAh = data(k).script1.disAh(end) + ...

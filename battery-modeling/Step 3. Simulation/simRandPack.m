@@ -30,11 +30,12 @@ z = maxSOC*ones(Ns,1); % start fully charged
 irc = zeros(Ns,1); % at rest
 ik = zeros([Ns 1]); % current experienced by each cell
 
+% TODO: Implement multi-temperature model compatibility %
 % Set cell temperatures based on tOpt
 if tOpt % set to "if 1," to execute, or "if 0," to skip this code
     T = 22.5 + 5*rand([Ns 1]);
 else
-    T = 35*ones([Ns 1]);
+    T = 25*ones([Ns 1]);
 end
 % Set self-discharge "cell temperature"
 Tsd = T - 5 + 10*rand([Ns 1]);
@@ -137,6 +138,12 @@ while theCycle <= Nc
     ik = ik + leak;
     z = z - (1/3600)*ik./q; % Update each cell SOC
     irc = rc.*irc + (1-rc).*ik; % Update resistor currents
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % BALANCING HAPPENS HERE
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 end % end while
 
 fprintf('\n');

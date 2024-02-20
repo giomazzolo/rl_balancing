@@ -1,5 +1,5 @@
 clc;clear;close;
-load ..\data\E2_OCV_P35.mat
+load ..\data\E2_OCV_P25.mat
 
 totDisAh = OCVData.script1.disAh(end) + OCVData.script2.disAh(end) + ...
            OCVData.script3.disAh(end) + OCVData.script4.disAh(end);
