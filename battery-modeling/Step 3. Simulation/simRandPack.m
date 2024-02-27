@@ -6,7 +6,11 @@
 % Assumes no hysteresis in the cell model (this could be changed
 % fairly easily; hysteresis makes results more difficult to interpret,
 % so this assumption is okay for a first analysis, at least).
+%
+% Comunicates with python and sends data via the memory map data
+% interface.
 % --------------------------------------------------------------------
+
 
 function packData = simRandPack(Ns,Nc,cycleFile,model,randOptions)
 
@@ -77,12 +81,26 @@ if cOpt % set to "if 1," to execute, or "if 0," to skip this code
     eta = eta - 0.001 - 0.002*rand([Ns 1]);
 end
 
+%% Memory map init
+m_in = memmapfile('simCell_mmap_out.dat','Format','double');
+m_out = memmapfile('simCell_mmap_in.dat','Format','double');
+m_out.Writable = true;
+send2Py.sync = 0;
+send2Py.state = true;
+
+% tx_mmap = Mmaptx("simCell", "double", true);
+
+%%
+
 % Now, simulate pack performance using ESC cell model.
 % ------------------------------------------------------------------
 theCycle = 1; theState = 'discharge';
 disCnt = 0; % start at beginning of profile
-fprintf(' Cycle = 1, discharging... ');
+fprintd(' Cycle = 1, discharging... ');
+
 while theCycle <= Nc
+    
+    %% Simulation
     v = OCVfromSOCtemp(z,T,model); % get OCV for each cell
     v = v - r.*irc; % add in capacitor voltages
     V = sum(v); % Total voltage excluding I*R
@@ -91,7 +109,7 @@ while theCycle <= Nc
     switch( theState )
         case 'discharge'
             % Get instantaneous demanded pack power, repeating profile
-            P = profile(rem(disCnt,length(profile))+1) * 1.5;
+            P = profile(rem(disCnt,length(profile))+1);
             % Compute demanded pack current based on unloaded voltage
             I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
             % Default cell current = pack current
@@ -103,7 +121,7 @@ while theCycle <= Nc
                 theState = 'charge';
                 chargeFactor = 1;
                 ik = 0*ik;
-                fprintf('charging... ');
+                fprintd('charging... ');
             end
             disCnt = disCnt + 1;
         case 'charge'
@@ -121,7 +139,7 @@ while theCycle <= Nc
                     ik = 0*ik;
                     theCycle = theCycle + 1;
                     if theCycle <= Nc
-                        fprintf('\n Cycle = %d, discharging... ',theCycle);
+                        fprintd('\n Cycle = %d, discharging... ',theCycle);
                     end
                 end
                 chargeFactor = chargeFactor*2;
@@ -139,16 +157,63 @@ while theCycle <= Nc
     z = z - (1/3600)*ik./q; % Update each cell SOC
     irc = rc.*irc + (1-rc).*ik; % Update resistor currents
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % BALANCING HAPPENS HERE
+    send2Py.zk = z(1);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% BALANCING HAPPENS HERE
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % Memory map sync
+    while m_in.Data(1) == send2Py.sync; end % blocking wait
+    send2Py.sync = m_in.Data(1);
+%     dataIn = tx_mmap.read();
+
+    %%% Do balancing
+
+    % Write data to memmap file
+    m_out.Data(3) = send2Py.zk;
+    m_out.Data(2) = send2Py.state;
+    m_out.Data(1) = send2Py.sync;
+    
+%     tx_mmap.write([send2Py.state, send2Py.zk]);
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 end % end while
 
-fprintf('\n');
+send2Py.state = false;
+
+% Memory map sync - end
+% dataIn = tx_mmap.read();
+% 
+% tx_mmap.write([send2Py.state, send2Py.zk]);
+% clear tx_mmap;
+
+while m_in.Data(1) == send2Py.sync; end % blocking wait
+send2Py.sync = m_in.Data(1);
+m_out.Data(2) = send2Py.state;
+m_out.Data(1) = send2Py.sync;
+
+clear m_out;
+clear m_in;
+
+fprintd('\n');
 packData.q = q; packData.rc = rc; packData.eta = eta;
 packData.r = r; packData.r0 = r0; packData.Tsd = Tsd;
 packData.T = T; packData.leak = leak;
 
+end
+
+%% Local functions
+
+% Debug print function
+% Only prints if run in script form
+% Does not print if script is compiled
+function fprintd(varargin)
+    if ~isdeployed
+        if nargin==2
+            fprintf(varargin{1},varargin{1});
+        else
+            fprintf(varargin{1});
+        end
+    end
 end

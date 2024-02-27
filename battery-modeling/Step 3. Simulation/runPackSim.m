@@ -1,32 +1,48 @@
-% Run random pack simulaitons
+% compile: mcc -I ..\helper_function\ -I ..\data\ -m runPackSim.m
 
-Ns = 3; % Number of cells
-Nc = 100; % Number of cycles to simulate
+% pack = runPackSim("3","30",'uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]')
 
-cycleFiles = {'nyccPower.mat','uddsPower.mat','us06Power.mat','hwfetPower.mat'}; % drive cycles power demand files
-cycleInd = 2;
+function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps)
 
-if ~isdeployed; addpath ..\data; end
+    % Run random pack simulaitons
+    
+    % Ns Number of cells
+    % Nc Number of cycles to simulate
+    Ns = str2double(Ns);
+    Nc = str2double(Nc);
 
-load("..\data\P14model_dynamic.mat", "model"); % Data Obtained from Dynamic Processing
+    randOps = strrep(randOps,","," ");
+    randOps = str2num(randOps); %#ok<ST2NM> 
 
-% Dynamic model with milti temperature feature and different cell models
-% fname = 'A123modeldyn.json'; 
-% fid = fopen(fname); 
-% raw = fread(fid,inf); 
-% str = char(raw'); 
-% fclose(fid); 
-% model = jsondecode(str);
+    % cycleFile = {'nyccPower.mat','uddsPower.mat','us06Power.mat','hwfetPower.mat'}; % drive cycles power demand files
+ 
+    if ~isdeployed; addpath ..\data; end
+    
+    % "..\data\P14model_dynamic.mat"
+    load(cellModel, "model"); % Data Obtained from Dynamic Processing
+    
+    % Dynamic model with milti temperature feature and different cell models
+    % fname = 'A123modeldyn.json'; 
+    % fid = fopen(fname); 
+    % raw = fread(fid,inf); 
+    % str = char(raw'); 
+    % fclose(fid); 
+    % model = jsondecode(str);
+    
+    % Enable/Disble randomized variables
+%     tOpts = 0; % random cell teperatures
+%     qOpt = 1; % random cell capacities
+%     rOpt = 1; % random cell r0
+%     sdOpt = 1; % random cell self discharge 
+%     cOpt = 1; % random cell-coulombic-efficiency values
+%     lOpt = 1; % random cell leakage currents
+%     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
+    
+    packData = simRandPack(Ns,Nc,cycleFile,model,randOps);
 
-% Enable/Disble randomized variables
-tOpts = 0; % random cell teperatures
-qOpt = 1; % random cell capacities
-rOpt = 1; % random cell r0
-sdOpt = 1; % random cell self discharge 
-cOpt = 1; % random cell-coulombic-efficiency values
-lOpt = 1; % random cell leakage currents
-rOpts = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
+%     f = figure();
+%     plot(packData.storez');
+%     waitfor(f);
 
-
-packData = simRandPack(Ns,Nc,cycleFiles{cycleInd},model,rOpts);
+end
 

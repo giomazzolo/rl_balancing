@@ -4,12 +4,12 @@ import atexit
 import os
 
 # Library that can communicate with other programs through memory mapped files
-# It writes to it output memory mapped file and can read from the input memory mapped file
+# It writes to an output memory mapped file and it reads from a different input memory mapped file
 # It can also sync data with the other program via a sync variable that is passed to the other
-# program and will only be read unless that flag is sent back in the input memory map file (if blocking read is enabled)
+# program and input data will only be read unless that flag is sent back in the input memory map file (if blocking read is enabled)
 class Mmaptx:
 
-    def __init__(self, name = None, format_type = "d", in_size = 1, out_size = 1, blocking = True,):
+    def __init__(self, name = None, format_type = "d", in_size = 1, out_size = 1, blocking = True):
 
         atexit.register(self.cleanup)
 
