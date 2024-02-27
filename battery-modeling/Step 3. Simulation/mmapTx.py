@@ -20,13 +20,20 @@ class Mmaptx:
         self.in_size = in_size
         self.out_size = out_size
 
+        if name == None:
+            exit("Name must be specified.")
+        
+        self.filename = name
+        self.filename_in = name + "_mmap_in.dat"
+        self.filename_out = name + "_mmap_out.dat"
+
         # Create or clean files that will be used as memory map input and output
-        f = open(name + "_mmap_in.dat", "w+b")
+        f = open(self.filename_in, "w+b")
         f.write(struct.pack(self.ftype * (self.in_size+1), *([0]*(self.in_size+1))))
         f.flush()
         f.close()
 
-        f = open(name + "_mmap_out.dat", "w+b")
+        f = open(self.filename_out, "w+b")
         f.write(struct.pack(self.ftype * (self.out_size+1), *([0]*(self.out_size+1))))
         f.flush()
         f.close()
@@ -34,10 +41,10 @@ class Mmaptx:
         del f
 
         # Crete the memory maps
-        self.f_in = open(name + "_mmap_in.dat", "r+b")
+        self.f_in = open(self.filename_in, "r+b")
         self.mm_in = mmap.mmap(self.f_in.fileno(), 0)
 
-        self.f_out = open(name + "_mmap_out.dat", "a+b")
+        self.f_out = open(self.filename_out, "a+b")
         self.mm_out = mmap.mmap(self.f_out.fileno(), 0)
 
         self.sync = 0.0
@@ -70,6 +77,7 @@ class Mmaptx:
     
     # Close files and memmaps
     def cleanup(self):
+
         self.mm_out.close()
         self.f_out.close()
         self.mm_in.close()

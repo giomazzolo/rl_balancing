@@ -12,7 +12,7 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns,Nc,cycleFile,model,randOptions)
+function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sample_rate)
 
 tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
 sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
@@ -82,13 +82,15 @@ if cOpt % set to "if 1," to execute, or "if 0," to skip this code
 end
 
 %% Memory map init
-m_in = memmapfile('simCell_mmap_out.dat','Format','double');
-m_out = memmapfile('simCell_mmap_in.dat','Format','double');
+m_in = memmapfile(strcat(filename,'_mmap_out.dat'),'Format','double');
+m_out = memmapfile(strcat(filename,'_mmap_in.dat'),'Format','double');
 m_out.Writable = true;
 send2Py.sync = 0;
 send2Py.state = true;
 
-% tx_mmap = Mmaptx("simCell", "double", true);
+sample_cnt = 0;
+
+% tx_mmap = Mmaptx(filename, "double", true);
 
 %%
 
@@ -157,22 +159,30 @@ while theCycle <= Nc
     z = z - (1/3600)*ik./q; % Update each cell SOC
     irc = rc.*irc + (1-rc).*ik; % Update resistor currents
 
-    send2Py.zk = z(1);
+    
 
     %% BALANCING HAPPENS HERE
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    if sample_cnt == sample_rate % Downsampling
 
-    % Memory map sync
-    while m_in.Data(1) == send2Py.sync; end % blocking wait
-    send2Py.sync = m_in.Data(1);
-%     dataIn = tx_mmap.read();
+        sample_cnt = 0;
 
-    %%% Do balancing
+        % Memory map sync
+        while m_in.Data(1) == send2Py.sync; end % blocking wait
+        send2Py.sync = m_in.Data(1);
+    %     dataIn = tx_mmap.read();
+    
+        %%% Do balancing
+    
+        % Write data to memmap file
+        send2Py.zk = z(1);
+        m_out.Data(3) = send2Py.zk;
+        m_out.Data(2) = send2Py.state;
+        m_out.Data(1) = send2Py.sync;
+    end
 
-    % Write data to memmap file
-    m_out.Data(3) = send2Py.zk;
-    m_out.Data(2) = send2Py.state;
-    m_out.Data(1) = send2Py.sync;
+    sample_cnt = sample_cnt + 1;
     
 %     tx_mmap.write([send2Py.state, send2Py.zk]);
 
