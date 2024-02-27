@@ -163,5 +163,5 @@ cython_debug/
 #.idea/
 
 battery-modeling/Step 3. Simulation/requiredMCRProducts.txt
-battery-modeling/Step 3. Simulation/simCell_mmap_in.dat
-battery-modeling/Step 3. Simulation/simCell_mmap_out.dat
+.*_mmap_in.dat
+.*_mmap_out.dat
