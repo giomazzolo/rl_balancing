@@ -61,17 +61,15 @@ class Mmaptx:
         # This means data is ready for reading
     def read(self):
 
+        self.mm_in.seek(0)
+        sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))
+
         if self.blocking:
-            self.mm_in.seek(0)
-            sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))   
             while self.sync != sync_in[0]:
                 self.mm_in.seek(0)
                 sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))
-            data_in = struct.unpack(self.ftype * self.in_size, self.mm_in.read(self.ftype_size * self.in_size))
-        else:
-            self.mm_in.seek(0)
-            sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))
-            data_in = struct.unpack(self.ftype * self.in_size, self.mm_in.read(self.ftype_size * self.in_size))
+                
+        data_in = struct.unpack(self.ftype * self.in_size, self.mm_in.read(self.ftype_size * self.in_size))
             
         return data_in
     

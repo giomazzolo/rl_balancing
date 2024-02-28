@@ -88,6 +88,8 @@ m_out.Writable = true;
 send2Py.sync = 0;
 send2Py.state = true;
 
+outsize = length(m_out.Data)-2;
+
 sample_cnt = 0;
 
 % tx_mmap = Mmaptx(filename, "double", true);
@@ -165,7 +167,6 @@ while theCycle <= Nc
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     if sample_cnt == sample_rate % Downsampling
-
         sample_cnt = 0;
 
         % Memory map sync
@@ -178,6 +179,8 @@ while theCycle <= Nc
         % Write data to memmap file
         send2Py.zk = z(1);
         m_out.Data(3) = send2Py.zk;
+        
+        m_out.Data(3:end) = z(1:outsize);
         m_out.Data(2) = send2Py.state;
         m_out.Data(1) = send2Py.sync;
     end

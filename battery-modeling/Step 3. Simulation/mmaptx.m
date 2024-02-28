@@ -4,7 +4,8 @@ classdef Mmaptx < handle
     %   the respective python library.
     %
     % WARNING: This was slower than direct implementation. It's better to
-    % use the memory map directly instead through this interface.
+    % use the memory map directly instead through this interface if speed
+    % is important.
 
     properties
         mm_in

@@ -13,7 +13,7 @@ function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sample_rate)
     Ns = str2double(Ns);
     Nc = str2double(Nc);
 
-    % Downsampling, will sample every sample_rate cycles
+    % Downsampling, will sample every sample_rate samples
     % When sample_rate is 0, all data points will be sampled and sent
     sample_rate = str2double(sample_rate);
 
