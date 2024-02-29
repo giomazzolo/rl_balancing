@@ -12,7 +12,7 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sample_rate)
+function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sampleFactor)
 
 tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
 sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
@@ -23,8 +23,10 @@ if ~isdeployed; addpath ..\helper_function\; end
 % ------------------------------------------------------------------
 % Create storage for all cell states after completion of each cycle
 % ------------------------------------------------------------------
-packData.storez = zeros([Ns Nc]); % create storage for final SOC
-packData.storeirc = zeros([Ns Nc]);
+if ~isdeployed  % Dont store anything if compiled
+    packData.storez = zeros([Ns Nc]); % create storage for final SOC
+    packData.storeirc = zeros([Ns Nc]);
+end
 % ------------------------------------------------------------------
 % Initialize default states for ESC cell model
 % ------------------------------------------------------------------
@@ -90,9 +92,11 @@ send2Py.state = true;
 
 outsize = length(m_out.Data)-2;
 
-sample_cnt = 0;
+sample_cnt = sampleFactor;
 
-% tx_mmap = Mmaptx(filename, "double", true);
+%% Balancing parameters
+
+rl_balance_i = zeros([Ns 1]);
 
 %%
 
@@ -136,8 +140,12 @@ while theCycle <= Nc
             ik = I*eta; % Charge coulombic eff.
             if max(vt)>=maxVlim
                 if chargeFactor > 32 % bail after 6.6kW/32 charge
-                    packData.storez(:,theCycle) = z;
-                    packData.storeirc(:,theCycle) = irc;
+
+                    if ~isdeployed % Dont store anything if compiled
+                        packData.storez(:,theCycle) = z;
+                        packData.storeirc(:,theCycle) = irc;
+                    end
+
                     theState = 'discharge';
                     disCnt = 0;
                     ik = 0*ik;
@@ -158,37 +166,36 @@ while theCycle <= Nc
     end
     % Simulate leakage current
     ik = ik + leak;
-    z = z - (1/3600)*ik./q; % Update each cell SOC
-    irc = rc.*irc + (1-rc).*ik; % Update resistor currents
-
     
+    % Balancing from RL model feedback
+    ik = ik + rl_balance_i;
 
-    %% BALANCING HAPPENS HERE
+    % Update each cell SOC
+    z = z - (1/3600)*ik./q;
+    % Update resistor currents
+    irc = rc.*irc + (1-rc).*ik;
+
+    %% Balancing Data sent and recieved here
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    if sample_cnt == sample_rate % Downsampling
+    if sample_cnt >= sampleFactor % Downsampling
         sample_cnt = 0;
 
         % Memory map sync
         while m_in.Data(1) == send2Py.sync; end % blocking wait
         send2Py.sync = m_in.Data(1);
-    %     dataIn = tx_mmap.read();
+        cmd = m_in.Data(2);
+
+        % Balancing currents from the RL mode
+        rl_balance_i = m_in.Data(3:end);
     
-        %%% Do balancing
-    
-        % Write data to memmap file
-        send2Py.zk = z(1);
-        m_out.Data(3) = send2Py.zk;
-        
+        % Write data to memmap file        
         m_out.Data(3:end) = z(1:outsize);
         m_out.Data(2) = send2Py.state;
         m_out.Data(1) = send2Py.sync;
     end
 
     sample_cnt = sample_cnt + 1;
-    
-%     tx_mmap.write([send2Py.state, send2Py.zk]);
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 end % end while
@@ -196,11 +203,6 @@ end % end while
 send2Py.state = false;
 
 % Memory map sync - end
-% dataIn = tx_mmap.read();
-% 
-% tx_mmap.write([send2Py.state, send2Py.zk]);
-% clear tx_mmap;
-
 while m_in.Data(1) == send2Py.sync; end % blocking wait
 send2Py.sync = m_in.Data(1);
 m_out.Data(2) = send2Py.state;
@@ -210,9 +212,12 @@ clear m_out;
 clear m_in;
 
 fprintd('\n');
-packData.q = q; packData.rc = rc; packData.eta = eta;
-packData.r = r; packData.r0 = r0; packData.Tsd = Tsd;
-packData.T = T; packData.leak = leak;
+
+if ~isdeployed  % Dont store anything if compiled
+    packData.q = q; packData.rc = rc; packData.eta = eta;
+    packData.r = r; packData.r0 = r0; packData.Tsd = Tsd;
+    packData.T = T; packData.leak = leak;
+end
 
 end
 

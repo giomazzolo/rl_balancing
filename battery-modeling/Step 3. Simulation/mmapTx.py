@@ -51,10 +51,14 @@ class Mmaptx:
     
     # Write to output memmap
     def write(self, *data):
+        
+        out_size_l = len(data)
+        self.mm_out.seek(self.ftype_size)
+        self.mm_out.write(struct.pack(self.ftype * out_size_l, *data))
+        
         self.sync = self.sync + 1
         self.mm_out.seek(0)
         self.mm_out.write(struct.pack(self.ftype, self.sync))
-        self.mm_out.write(struct.pack(self.ftype * self.out_size, *data))
 
     # Blocking read from input memmap
         # Waits until the other program has set the sync flag to the same value sent

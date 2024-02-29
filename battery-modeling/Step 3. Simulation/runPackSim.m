@@ -2,7 +2,7 @@
 
 % pack = runPackSim("3","30",'..\data\uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]')
 
-function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sample_rate)
+function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sampleFactor)
 
     filename = "simCell";
 
@@ -13,9 +13,9 @@ function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sample_rate)
     Ns = str2double(Ns);
     Nc = str2double(Nc);
 
-    % Downsampling, will sample every sample_rate samples
-    % When sample_rate is 0, all data points will be sampled and sent
-    sample_rate = str2double(sample_rate);
+    % Downsampling, will sample every sampleFactor samples
+    % When sampleFactor is 0, all data points will be sampled and sent
+    sampleFactor = str2double(sampleFactor);
 
     randOps = strrep(randOps,","," ");
     randOps = str2num(randOps); %#ok<ST2NM> 
@@ -44,7 +44,7 @@ function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sample_rate)
 %     lOpt = 1; % random cell leakage currents
 %     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
     
-    packData = simRandPack(Ns,Nc,cycleFile,model,randOps,filename,sample_rate);
+    packData = simRandPack(Ns,Nc,cycleFile,model,randOps,filename,sampleFactor);
 
 %     f = figure();
 %     plot(packData.storez');
