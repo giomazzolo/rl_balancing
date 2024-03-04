@@ -30,8 +30,8 @@ end
 % ------------------------------------------------------------------
 % Initialize default states for ESC cell model
 % ------------------------------------------------------------------
-maxSOC = 0.95; % cell SOC when pack is "fully charged"
-minSOC = 0.1; % cell SOC when pack is "fully discharged"
+maxSOC = 0.85; % cell SOC when pack is "fully charged"
+minSOC = 0.15; % cell SOC when pack is "fully discharged"
 z = maxSOC*ones(Ns,1); % start fully charged
 irc = zeros(Ns,1); % at rest
 ik = zeros([Ns 1]); % current experienced by each cell
@@ -87,7 +87,7 @@ end
 m_in = memmapfile(strcat(filename,'_mmap_out.dat'),'Format','double');
 m_out = memmapfile(strcat(filename,'_mmap_in.dat'),'Format','double');
 m_out.Writable = true;
-send2Py.sync = 0;
+send2Py.sync = 1.0;
 send2Py.state = true;
 
 outsize = length(m_out.Data)-2;
@@ -181,18 +181,24 @@ while theCycle <= Nc
     if sample_cnt >= sampleFactor % Downsampling
         sample_cnt = 0;
 
-        % Memory map sync
-        while m_in.Data(1) == send2Py.sync; end % blocking wait
-        send2Py.sync = m_in.Data(1);
-        cmd = m_in.Data(2);
-
-        % Balancing currents from the RL mode
-        rl_balance_i = m_in.Data(3:end);
-    
         % Write data to memmap file        
         m_out.Data(3:end) = z(1:outsize);
         m_out.Data(2) = send2Py.state;
         m_out.Data(1) = send2Py.sync;
+
+        % Memory map sync
+        while m_in.Data(1) ~= send2Py.sync; end % blocking wait
+        send2Py.sync = m_in.Data(1) + 1;
+        cmd = m_in.Data(2);
+
+        if cmd == 1
+            break;
+        end
+
+        % Get balancing feedback from the RL mode
+        % Feedback is trearted as a discharge current value
+        rl_balance_i = m_in.Data(3:end);
+ 
     end
 
     sample_cnt = sample_cnt + 1;
@@ -203,8 +209,8 @@ end % end while
 send2Py.state = false;
 
 % Memory map sync - end
-while m_in.Data(1) == send2Py.sync; end % blocking wait
-send2Py.sync = m_in.Data(1);
+% while m_in.Data(1) == send2Py.sync; end % blocking wait
+% send2Py.sync = m_in.Data(1);
 m_out.Data(2) = send2Py.state;
 m_out.Data(1) = send2Py.sync;
 

@@ -1,63 +1,72 @@
 import subprocess
-import time
 import mmapTx
-import numpy as np
+import os
+import signal
+
+import sys,os
+
 
 class SimCellPack:
+# This class calls a cell simulation executable with the specified parameters
+    
+    def __init__(self, numCells, simCycles, sampleFactor):
+        # Initialize the Cell Simulation class
 
-    def __init__(self, name = None, format_type = "d", in_size = 1, out_size = 1, blocking = True):
-        return
+        sys.path.append(os.getcwd())
+        
+        self.simSubProcess = None
+        self.mmaptx = None
+
+        self.simExecutable = "runPackSim"
+
+        self.numCells = numCells
+        self.simCycles = simCycles
+        
+        self.profile = "\"..\\data\\us60Power.mat\""
+        self.cellModel = "\"..\\data\\P14model_dynamic.mat\""
+        self.cellRandOpts = "[0,1,1,1,1,1]"
+
+        self.sampleFactor = sampleFactor
 
         
-def getSimData(numCells):
-
-    mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=numCells+1, out_size=numCells+1, blocking=True)
-
-    data_list = []
-    cmd = 1
-    feedback = [0]*numCells # Creates array of size numCells initialized with 0s
-    start = time.time()
-
-    # Start recieving data
-    while True:
-
-        mmaptx.write(cmd, *feedback)
-        data_in = mmaptx.read()
+   
+    def startSim(self):
+    # Starts the execution of the cell executable simulator based on the configured parameters
+        self.simCmd = 0
         
-        if data_in[0] == False:
-            break
-        else:
-            data_list.append(list(data_in[1:]))
+        self.cmdExe = self.simExecutable + " " + str(self.numCells) + " " + str(self.simCycles) + " " \
+            + self.profile + " " + self.cellModel + " " + self.cellRandOpts + " " + str(self.sampleFactor)
+        
+        self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE)
 
-        # Toy balancing feedback
-        minSoc = min(data_in[1:])
-        feedback = [x - minSoc for  x in data_in[1:]]
-            
+        self.mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=self.numCells+1, out_size=self.numCells+1, blocking=True)
 
-    # Send 
-    cmd = 0 # Send stop command
-    feedback = [0]*numCells
-    mmaptx.write(cmd, *feedback)
 
-    # Print out time
-    end = time.time()
-    print("Execution time:", end-start)
+    def getSimStep(self):
+    # Returns a simulation step data
+        # The cell simulator will await for feedback before continuing the next step
+        # The returns the simulation state and the data
+            # If the simulation state is 1, that means that the siulation is still ongoing
+            # If the simulation state is 0, that means that the simulation finished
 
-    # Clean and close mmap
-    mmaptx.cleanup()
-    del mmaptx
-
-    return data_list
-
-def runSim(cmd):
-    # stdout=subprocess.PIPE, creationflags=0x08000000
-    return subprocess.Popen(cmd, stdout=subprocess.PIPE)
-
-def startSim(numCells, cycles, sampleFactor):
-
-    cmd = "runPackSim " + str(numCells) + " " + str(cycles) + " \"..\\data\\us60Power.mat\" \"..\\data\\P14model_dynamic.mat\" [0,1,1,1,1,1] " + str(sampleFactor)
-
-    process = runSim(cmd)
-    data = getSimData(numCells)
-    process.communicate()
-    return data
+        data_in = self.mmaptx.read()
+        return data_in[0], data_in[1:]
+    
+    
+    def sendSimFeedback(self, feedback = None):
+    # Sends control feedback to the cell somulation
+        self.mmaptx.write(self.simCmd, *feedback)
+    
+    def stopSim(self):
+    # Stops the simulation
+        if self.mmaptx != None:
+            self.simCmd = 1.0
+            self.mmaptx.write(self.simCmd)
+            if self.simSubProcess != None:
+                stdout, stderr = self.simSubProcess.communicate()
+                try:
+                    os.killpg(os.getpgid(self.simSubProcess.pid), signal.SIGTERM)
+                except:
+                    print("\n")
+                self.simSubProcess = None
+            self.mmaptx.cleanup()

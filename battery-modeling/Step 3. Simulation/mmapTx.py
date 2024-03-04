@@ -56,7 +56,7 @@ class Mmaptx:
         self.mm_out.seek(self.ftype_size)
         self.mm_out.write(struct.pack(self.ftype * out_size_l, *data))
         
-        self.sync = self.sync + 1
+        self.sync = self.sync
         self.mm_out.seek(0)
         self.mm_out.write(struct.pack(self.ftype, self.sync))
 
@@ -69,10 +69,11 @@ class Mmaptx:
         sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))
 
         if self.blocking:
-            while self.sync != sync_in[0]:
+            while self.sync == sync_in[0]:
                 self.mm_in.seek(0)
                 sync_in = struct.unpack(self.ftype, self.mm_in.read(self.ftype_size))
-                
+            self.sync = sync_in[0]
+
         data_in = struct.unpack(self.ftype * self.in_size, self.mm_in.read(self.ftype_size * self.in_size))
             
         return data_in
