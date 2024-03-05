@@ -1,8 +1,8 @@
 % compile: mcc -I ..\helper_function\ -I ..\data\ -m runPackSim.m
 
-% pack = runPackSim("3","30",'..\data\uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]')
+% pack = runPackSim("3","1",'..\data\uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]',"15")
 
-function packData = runPackSim(Ns,Nc,cycleFile,cellModel,randOps, sampleFactor)
+function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFactor)
 
     filename = "simCell";
 

@@ -11,13 +11,11 @@ class SimCellPack:
     
     def __init__(self, numCells, simCycles, sampleFactor):
         # Initialize the Cell Simulation class
-
-        sys.path.append(os.getcwd())
         
         self.simSubProcess = None
         self.mmaptx = None
 
-        self.simExecutable = "runPackSim"
+        self.simExecutable = "runPackSim.exe"
 
         self.numCells = numCells
         self.simCycles = simCycles
@@ -29,7 +27,6 @@ class SimCellPack:
         self.sampleFactor = sampleFactor
 
         
-   
     def startSim(self):
     # Starts the execution of the cell executable simulator based on the configured parameters
         self.simCmd = 0
@@ -37,7 +34,7 @@ class SimCellPack:
         self.cmdExe = self.simExecutable + " " + str(self.numCells) + " " + str(self.simCycles) + " " \
             + self.profile + " " + self.cellModel + " " + self.cellRandOpts + " " + str(self.sampleFactor)
         
-        self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE)
+        self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
         self.mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=self.numCells+1, out_size=self.numCells+1, blocking=True)
 
@@ -56,6 +53,11 @@ class SimCellPack:
     def sendSimFeedback(self, feedback = None):
     # Sends control feedback to the cell somulation
         self.mmaptx.write(self.simCmd, *feedback)
+
+    def resetSim(self):
+        self.simCmd = 2 # Reset code for the cell simulator
+        self.mmaptx.write(self.simCmd) # Send reset command
+        self.simCmd = 0
     
     def stopSim(self):
     # Stops the simulation

@@ -85,3 +85,10 @@ class Mmaptx:
         self.f_out.close()
         self.mm_in.close()
         self.f_in.close()
+        if os.path.exists(self.filename_in):
+            os.remove(self.filename_in)
+        if os.path.exists(self.filename_out):
+            os.remove(self.filename_out)
+
+
+
