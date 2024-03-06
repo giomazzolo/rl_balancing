@@ -9,7 +9,7 @@ import sys,os
 class SimCellPack:
 # This class calls a cell simulation executable with the specified parameters
     
-    def __init__(self, numCells, simCycles, sampleFactor):
+    def __init__(self, numCells, simCycles, sampleFactor, utilization):
         # Initialize the Cell Simulation class
         
         self.simSubProcess = None
@@ -26,13 +26,16 @@ class SimCellPack:
 
         self.sampleFactor = sampleFactor
 
+        self.utilization = utilization
+
         
     def startSim(self):
     # Starts the execution of the cell executable simulator based on the configured parameters
         self.simCmd = 0
         
         self.cmdExe = self.simExecutable + " " + str(self.numCells) + " " + str(self.simCycles) + " " \
-            + self.profile + " " + self.cellModel + " " + self.cellRandOpts + " " + str(self.sampleFactor)
+            + self.profile + " " + self.cellModel + " " + self.cellRandOpts + " " + str(self.sampleFactor) \
+            + " " + str(self.utilization)
         
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 

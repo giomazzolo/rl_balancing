@@ -2,7 +2,7 @@
 
 % pack = runPackSim("3","1",'..\data\uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]',"15")
 
-function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFactor)
+function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFactor, utilizationPercent)
 
     filename = "simCell";
 
@@ -13,12 +13,17 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFact
     Ns = str2double(Ns);
     Nc = str2double(Nc);
 
-    % Downsampling, will sample every sampleFactor samples
+    % Downsampling, will sample every sampleFactor samplesC:\Users\A493192\Downloads\EVsim
     % When sampleFactor is 0, all data points will be sampled and sent
     sampleFactor = str2double(sampleFactor);
 
     randOps = strrep(randOps,","," ");
     randOps = str2num(randOps); %#ok<ST2NM> 
+    
+    % Percentage of time per day that the battery is under use (charging
+    % and discharging). 1 - utilizationPercent is percentage of time per
+    % day the battery is under resting conditions.
+    utilizationPercent = str2double(utilizationPercent);
 
     % cycleFile = {'nyccPower.mat','uddsPower.mat','us06Power.mat','hwfetPower.mat'}; % drive cycles power demand files
  
@@ -44,7 +49,7 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFact
 %     lOpt = 1; % random cell leakage currents
 %     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
     
-    packData = simRandPack(Ns,Nc,cycleFile,model,randOps,filename,sampleFactor);
+    packData = simRandPack(Ns,Nc,cycleFile,model,randOps,filename,sampleFactor,utilizationPercent);
 
 %     f = figure();
 %     plot(packData.storez');

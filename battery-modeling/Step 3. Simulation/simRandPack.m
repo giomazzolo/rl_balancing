@@ -12,7 +12,7 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sampleFactor)
+function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sampleFactor, utilizationPercent)
 
 % State machine variable to configure the simulation by steps and allow
 % resetting of the simulation in real time
@@ -59,13 +59,16 @@ switch simState
         % ------------------------------------------------------------------
         maxSOC = 0.85; % cell SOC when pack is "fully charged"
         minSOC = 0.15; % cell SOC when pack is "fully discharged"
+
+        utilizationInSec = utilizationPercent * 24 * 60 * 60;
+        restingInSec = (1-utilizationPercent) * 24 * 60 * 60;
         
     case 2
     %% Initialize variables
         simState = 3; % Next state
 
         % Downsampling factor counter
-        sample_cnt = sampleFactor;        
+        sample_cnt = 0;        
         %Balancing parameters
         rl_balance_i = zeros([Ns 1]);
 
@@ -130,6 +133,9 @@ switch simState
         fprintd(' Cycle = 1, discharging... ');
 
         simState = 4; % Next state
+
+        utilizationCounter = 0;
+        restingCounter = 0;
         
         while theCycle <= Nc
             
@@ -138,6 +144,7 @@ switch simState
             V = sum(v); % Total voltage excluding I*R
             vt = v-ik.*r0; % Cell terminal voltages
             % Hystheresis can be added here
+
             switch( theState )
                 case 'discharge'
                     % Get instantaneous demanded pack power, repeating profile
@@ -155,7 +162,16 @@ switch simState
                         ik = 0*ik;
                         fprintd('charging... ');
                     end
+
+                    if utilizationCounter >= utilizationInSec
+                        fprintd('resting... ');
+                        theState = 'resting';
+                        utilizationCounter = 0;
+                    end
+
                     disCnt = disCnt + 1;
+                    utilizationCounter = utilizationCounter + 1;
+
                 case 'charge'
                     % start charging @ 6.6kW, then taper
                     P = -6600/chargeFactor;
@@ -180,6 +196,21 @@ switch simState
                         end
                         chargeFactor = chargeFactor*2;
                     end
+
+                case 'resting'
+
+                    % Balancing from RL model feedback
+                    ik = rl_balance_i;
+
+                    if restingCounter >= restingInSec
+                        fprintd('discharging... ');
+                        theState = 'discharge';
+                        restingCounter = 0;
+                    end
+
+                    restingCounter = restingCounter + 1;
+                    sample_cnt = sample_cnt + 1;
+
                 otherwise
                     error('charge/discharge state has been corrupted')
             end
@@ -190,15 +221,12 @@ switch simState
             end
             % Simulate leakage current
             ik = ik + leak;
-            
-            % Balancing from RL model feedback
-            ik = ik + rl_balance_i;
-        
+                    
             % Update each cell SOC
             z = z - (1/3600)*ik./q;
             % Update resistor currents
             irc = rc.*irc + (1-rc).*ik;
-        
+
             %% Balancing Data sent and recieved here
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             
@@ -231,7 +259,7 @@ switch simState
          
             end
         
-            sample_cnt = sample_cnt + 1;
+            %sample_cnt = sample_cnt + 1;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         end % end while
@@ -241,7 +269,7 @@ switch simState
        
         % Communicate that somulation has finished
         send2Py.state = false;
-        m_out.Data(3:end) = z(1:outsize);
+        %m_out.Data(3:end) = z(1:outsize);
         m_out.Data(2) = send2Py.state;
         m_out.Data(1) = send2Py.sync;
 
