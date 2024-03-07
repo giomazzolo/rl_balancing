@@ -162,6 +162,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-battery-modeling/Step 3. Simulation/requiredMCRProducts.txt
-.*_mmap_in.dat
-.*_mmap_out.dat
+cell_simulation/requiredMCRProducts.txt
+cell_simulation/unresolvedSymbols.txt
+cell_simulation/includedSupportPackages.txt
+cell_simulation/mccExcludedFiles.log

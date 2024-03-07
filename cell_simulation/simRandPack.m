@@ -77,11 +77,16 @@ switch simState
         ik = zeros([Ns 1]); % current experienced by each cell
         
         % TODO: Implement multi-temperature model compatibility %
+        % WORKAROUND: Force temperature to be the same for all simulated cells
+        % until multi-cell temperature is implemented. This might be
+        % skipped and left as-is for simplicity.
         % Set cell temperatures based on tOpt
         if tOpt % set to "if 1," to execute, or "if 0," to skip this code
-            T = 22.5 + 5*rand([Ns 1]);
+            %T = 22.5 + 5*rand([Ns 1]);
+            T = 22.5 + 5*rand(1);
         else
-            T = 25*ones([Ns 1]);
+            %T = 25*ones([Ns 1]);
+            T = 25;
         end
         
         % Set self-discharge "cell temperature"

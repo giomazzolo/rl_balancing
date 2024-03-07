@@ -20,8 +20,8 @@ class SimCellPack:
         self.numCells = numCells
         self.simCycles = simCycles
         
-        self.profile = "\"..\\data\\us60Power.mat\""
-        self.cellModel = "\"..\\data\\P14model_dynamic.mat\""
+        self.profile = "\"data\\drive_cycle_profiles\\us60Power.mat\""
+        self.cellModel = "\"data\\cell_models\\P14model.mat\""
         self.cellRandOpts = "[0,1,1,1,1,1]"
 
         self.sampleFactor = sampleFactor

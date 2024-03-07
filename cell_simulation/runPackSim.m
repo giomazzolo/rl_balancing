@@ -1,6 +1,6 @@
-% compile: mcc -I ..\helper_function\ -I ..\data\ -m runPackSim.m
+% compile: mcc -I helper_function\ -I data\ -m runPackSim.m
 
-% pack = runPackSim("3","1",'..\data\uddsPower.mat',"..\data\P14model_dynamic.mat",'[0,1,1,1,1,1]',"15")
+% pack = runPackSim("3","1",'data\drive_cycle_profiles\uddsPower.mat',"data\cell_models\P14model_dynamic.mat",'[0,1,1,1,1,1]',"15", "0.8")
 
 function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFactor, utilizationPercent)
 
