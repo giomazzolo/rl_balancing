@@ -167,3 +167,6 @@ cell_simulation/unresolvedSymbols.txt
 cell_simulation/includedSupportPackages.txt
 cell_simulation/mccExcludedFiles.log
 cell_simulation/readme.txt
+
+pponorm_tensorboard_log/
+tmp/
