@@ -166,3 +166,4 @@ cell_simulation/requiredMCRProducts.txt
 cell_simulation/unresolvedSymbols.txt
 cell_simulation/includedSupportPackages.txt
 cell_simulation/mccExcludedFiles.log
+cell_simulation/readme.txt
