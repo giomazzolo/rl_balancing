@@ -10,7 +10,7 @@ class SimCellPack:
 # This class calls a cell simulation executable with the specified parameters
     # Must be called from within rl_balance
     
-    def __init__(self, numCells, simCycles, sampleFactor, utilization):
+    def __init__(self, cellModel, numCells, simCycles, sampleFactor, utilization):
         # Initialize the Cell Simulation class
         
         self.simSubProcess = None
@@ -19,17 +19,24 @@ class SimCellPack:
         self.numCells = numCells
         self.simCycles = simCycles
 
+        self.cellModels = ["A12", "ATL", "E1", "E2", "P14", "SAM"]
+
         try:
             index = os.getcwd().split("\\").index("rl_balance")
         except:
             exit("rl_balance folder not found, make sure to run this script inside rl_balance folder.")
 
-        
         self.modelsDir = "\\".join(os.getcwd().split("\\")[:index+1]) + "\\cell_simulation"
         
         self.simExecutable = "\"" + self.modelsDir + "\\runPackSim.exe\""
-        self.profile = "\"" + self.modelsDir + "\\data\\drive_cycle_profiles\\us60Power.mat\""
-        self.cellModel = "\"" + self.modelsDir + "\\data\\cell_models\\P14model.mat\""
+
+        if cellModel not in self.cellModels:
+            exit("Cell model specified not in the list: " + self.cellModels)
+        else:
+            self.cellModelPath = "\"" + self.modelsDir + "\\data\\cell_models\\" + cellModel + "model.mat\""
+            
+        self.profilePath = "\"" + self.modelsDir + "\\data\\drive_cycle_profiles\\us60Power.mat\""
+
         self.cellRandOpts = "[0,1,1,1,1,1]"
 
         self.sampleFactor = sampleFactor
@@ -41,10 +48,10 @@ class SimCellPack:
     # Starts the execution of the cell executable simulator based on the configured parameters
         self.simCmd = 0
         
-        self.cmdExe = self.simExecutable + " " + str(self.numCells) + " " + str(self.simCycles) + " " \
-            + self.profile + " " + self.cellModel + " " + self.cellRandOpts + " " + str(self.sampleFactor) \
-            + " " + str(self.utilization)
-                      
+        self.cmdExe = " ".join([self.simExecutable, str(self.numCells), str(self.simCycles),    \
+                                self.profilePath, self.cellModelPath, self.cellRandOpts,        \
+                                str(self.sampleFactor), str(self.utilization)])
+                   
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
         self.mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=self.numCells+1, out_size=self.numCells+1, blocking=True)

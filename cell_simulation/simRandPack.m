@@ -57,8 +57,8 @@ switch simState
         % ------------------------------------------------------------------
         % Initialize default states for ESC cell model
         % ------------------------------------------------------------------
-        maxSOC = 0.85; % cell SOC when pack is "fully charged"
-        minSOC = 0.15; % cell SOC when pack is "fully discharged"
+        maxSOC = 0.95; % cell SOC when pack is "fully charged"
+        minSOC = 0.10; % cell SOC when pack is "fully discharged"
 
         utilizationInSec = utilizationPercent * 24 * 60 * 60;
         restingInSec = (1-utilizationPercent) * 24 * 60 * 60;
