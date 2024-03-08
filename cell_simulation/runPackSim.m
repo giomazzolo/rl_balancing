@@ -2,7 +2,7 @@
 
 % pack = runPackSim("3","1",'data/drive_cycle_profiles/uddsPower.mat',"data/cell_models/P14model_dynamic.mat",'[0,1,1,1,1,1]',"15", "0.8")
 
-function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFactor, utilizationPercent)
+function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, randOps, sampleFactor, utilizationPercent)
 
     filename = "simCell";
 
@@ -24,6 +24,8 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFact
     % and discharging). 1 - utilizationPercent is percentage of time per
     % day the battery is under resting conditions.
     utilizationPercent = str2double(utilizationPercent);
+
+    seed = str2double(seed);
 
     % cycleFile = {'nyccPower.mat','uddsPower.mat','us06Power.mat','hwfetPower.mat'}; % drive cycles power demand files
  
@@ -49,7 +51,7 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, randOps, sampleFact
 %     lOpt = 1; % random cell leakage currents
 %     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
     
-    packData = simRandPack(Ns,Nc,cycleFile,model,randOps,filename,sampleFactor,utilizationPercent);
+    packData = simRandPack(Ns,Nc,cycleFile,model,seed,balancing,randOps,filename,sampleFactor,utilizationPercent);
 
 %     f = figure();
 %     plot(packData.storez');

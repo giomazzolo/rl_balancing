@@ -12,11 +12,11 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns, Nc, cycleFile, model, randOptions, filename, sampleFactor, utilizationPercent)
+function packData = simRandPack(Ns, Nc, cycleFile, model, seed, balancing, randOptions, filename, sampleFactor, utilizationPercent)
 
 % State machine variable to configure the simulation by steps and allow
 % resetting of the simulation in real time
-simState = 0; % Initial state
+simState = "init_mmap"; % Initial state
 
 % End simulation flag
 endSim = false;
@@ -25,9 +25,9 @@ while endSim ~= true
 
 switch simState
     
-    case 0
+    case "init_mmap"
     %% Initialize memmap
-        simState = 1; % Next state
+        simState = "init_vars"; % Next state
 
         % Memory map init
         m_in = memmapfile(strcat(filename,'_mmap_out.dat'),'Format','double');
@@ -37,9 +37,8 @@ switch simState
         send2Py.state = true;
         outsize = length(m_out.Data)-2;
 
-    case 1
-    %% One time-initialized variables
-        simState = 2; % Next state
+    case "init_vars"
+    %% Initialize variables
 
         tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
         sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
@@ -59,13 +58,23 @@ switch simState
         % ------------------------------------------------------------------
         maxSOC = 0.95; % cell SOC when pack is "fully charged"
         minSOC = 0.10; % cell SOC when pack is "fully discharged"
-
-        utilizationInSec = utilizationPercent * 24 * 60 * 60;
-        restingInSec = (1-utilizationPercent) * 24 * 60 * 60;
         
-    case 2
-    %% Initialize variables
-        simState = 3; % Next state
+        % Time in seconds the simulation will simulate the cells under use
+        % and no use in a 24hr period.
+        utilizationInSec = utilizationPercent * 24 * 60 * 60;
+        restingInSec = (1-utilizationPercent) * 24 * 60 * 60;  
+        
+        switch balancing
+            case "passive"
+                simState = "sim_passive_balance"; % Next state
+            case "active"
+                simState = "sim_active_balance"; % Next state
+            otherwise
+                error('balancing type must be defined')
+        end
+        
+        % save the default balancing state for this simulation
+        simBalanceState = simState;
 
         % Downsampling factor counter
         sample_cnt = 0;        
@@ -75,6 +84,9 @@ switch simState
         z = maxSOC*ones(Ns,1); % start fully charged
         irc = zeros(Ns,1); % at rest
         ik = zeros([Ns 1]); % current experienced by each cell
+
+        % Set the rng seed to guarantee the same cell configuration
+        rng(seed);
         
         % TODO: Implement multi-temperature model compatibility %
         % WORKAROUND: Force temperature to be the same for all simulated cells
@@ -129,15 +141,27 @@ switch simState
             eta = eta - 0.001 - 0.002*rand([Ns 1]);
         end
 
-    case 3 
-    %% Cell pack simulation
+    case "reset_sim"
+    % Reset starting parameters to restart simulation
+        z = maxSOC*ones(Ns,1); % start fully charged
+        irc = zeros(Ns,1); % at rest
+        ik = zeros([Ns 1]); % current experienced by each cell
+        % Downsampling factor counter
+        sample_cnt = 0;        
+        %Balancing parameters
+        rl_balance_i = zeros([Ns 1]);
+
+        simState = simBalanceState; % Next state
+
+    case "sim_passive_balance" 
+    %% Cell pack simulation for passive balancing, only sends SOC data during resting fase
         % Now, simulate pack performance using ESC cell model.
         % ------------------------------------------------------------------
         theCycle = 1; theState = 'discharge';
         disCnt = 0; % start at beginning of profile
         fprintd(' Cycle = 1, discharging... ');
 
-        simState = 4; % Next state
+        simState = "sim_wait"; % Next state
 
         utilizationCounter = 0;
         restingCounter = 0;
@@ -203,8 +227,7 @@ switch simState
                     end
 
                 case 'resting'
-
-                    % Balancing from RL model feedback
+                    % Passive balancing feedback from RL model
                     ik = rl_balance_i;
 
                     if restingCounter >= restingInSec
@@ -214,6 +237,9 @@ switch simState
                     end
 
                     restingCounter = restingCounter + 1;
+
+                    % Sampling counter only increased during resting fase
+                    % when simulation is balancing passively
                     sample_cnt = sample_cnt + 1;
 
                 otherwise
@@ -249,12 +275,12 @@ switch simState
                 cmd = m_in.Data(2);
         
                 if cmd == 1 % Stop simulation prematurely
-                    simState = 4;
+                    simState = "sim_wait";
                     break;        
                 elseif cmd == 2 % Reset simulation prematurely
                     % Go back to variable init state and re-initialize the
                     % simulation
-                    simState = 2;
+                    simState = "reset_sim";
                     break;
                 end
         
@@ -269,8 +295,149 @@ switch simState
         
         end % end while
 
-    case 4
-    % Finalize simulation
+    case "sim_active_balance" 
+        %% TODO: Cell pack simulation for active balancing, only sends SOC data during charge and discharge fase
+        % Now, simulate pack performance using ESC cell model.
+        % ------------------------------------------------------------------
+        theCycle = 1; theState = 'discharge';
+        disCnt = 0; % start at beginning of profile
+        fprintd(' Cycle = 1, discharging... ');
+
+        simState = "sim_wait"; % Next state
+
+        utilizationCounter = 0;
+        restingCounter = 0;
+        
+        while theCycle <= Nc
+            
+            v = OCVfromSOCtemp(z,T,model); % get OCV for each cell
+            v = v - r.*irc; % add in capacitor voltages
+            V = sum(v); % Total voltage excluding I*R
+            vt = v-ik.*r0; % Cell terminal voltages
+            % Hystheresis can be added here
+
+            switch( theState )
+                case 'discharge'
+                    % Get instantaneous demanded pack power, repeating profile
+                    P = profile(rem(disCnt,length(profile))+1);
+                    % Compute demanded pack current based on unloaded voltage
+                    I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
+                    % Default cell current = pack current
+                    ik = I*ones(Ns,1);
+                    if I < 0 % If we happen to be charging this momement
+                        ik = ik.*eta;
+                    end
+                    if min(z) <= minSOC || min(vt) < minVlim % stop discharging
+                        theState = 'charge';
+                        chargeFactor = 1;
+                        ik = 0*ik;
+                        fprintd('charging... ');
+                    end
+
+                    if utilizationCounter >= utilizationInSec
+                        fprintd('resting... ');
+                        theState = 'resting';
+                        utilizationCounter = 0;
+                    end
+
+                    disCnt = disCnt + 1;
+                    utilizationCounter = utilizationCounter + 1;
+
+                    sample_cnt = sample_cnt + 1;
+
+                case 'charge'
+                    % start charging @ 6.6kW, then taper
+                    P = -6600/chargeFactor;
+                    I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
+                    I = max(-min(q),I); % limit to 1C charge rate max
+                    ik = I*eta; % Charge coulombic eff.
+                    if max(vt)>=maxVlim
+                        if chargeFactor > 32 % bail after 6.6kW/32 charge
+        
+                            if ~isdeployed % Dont store anything if compiled
+                                packData.storez(:,theCycle) = z;
+                                packData.storeirc(:,theCycle) = irc;
+                            end
+        
+                            theState = 'discharge';
+                            disCnt = 0;
+                            ik = 0*ik;
+                            theCycle = theCycle + 1;
+                            if theCycle <= Nc
+                                fprintd('\n Cycle = %d, discharging... ',theCycle);
+                            end
+                        end
+                        chargeFactor = chargeFactor*2;
+                    end
+
+                    sample_cnt = sample_cnt + 1;
+
+                case 'resting'
+                    if restingCounter >= restingInSec
+                        fprintd('discharging... ');
+                        theState = 'discharge';
+                        restingCounter = 0;
+                    end
+                    restingCounter = restingCounter + 1;
+
+                otherwise
+                    error('charge/discharge state has been corrupted')
+
+            end
+
+            % Simulate self discharge via variable resistor in parallel
+            if sdOpt == 1
+                rsd = ((-20+0.4*Tsd).*z + (35-0.5*Tsd))*1e3;
+                ik = ik + vt./rsd;
+            end
+            % Simulate leakage current
+            ik = ik + leak; 
+            % Update each cell SOC
+            z = z - (1/3600)*ik./q;
+            % Update resistor currents
+            irc = rc.*irc + (1-rc).*ik;
+
+            %% Balancing Data sent and recieved here
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
+            if sample_cnt >= sampleFactor % Downsampling
+                sample_cnt = 0;
+        
+                % Write data to memmap file        
+                m_out.Data(3:end) = z(1:outsize);
+                m_out.Data(2) = send2Py.state;
+                m_out.Data(1) = send2Py.sync;
+        
+                % Memory map sync
+                while m_in.Data(1) ~= send2Py.sync; end % blocking wait
+                send2Py.sync = m_in.Data(1) + 1;
+                cmd = m_in.Data(2);
+        
+                if cmd == 1 % Stop simulation prematurely
+                    simState = "reset_sim";
+                    break;        
+                elseif cmd == 2 % Reset simulation prematurely
+                    % Go back to variable init state and re-initialize the
+                    % simulation
+                    simState = "init_vars";
+                    break;
+                end
+        
+                % Get balancing feedback from the RL mode
+                % Feedback is trearted as a percentage of the power
+                % demanded by each cell. Must sum up to the total number of
+                % cells.
+                balance_fb = m_in.Data(3:end);
+         
+            end
+        
+            %sample_cnt = sample_cnt + 1;
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        end % end while
+
+    case "sim_wait"
+    % Wait for command
        
         % Communicate that somulation has finished
         send2Py.state = false;
@@ -301,12 +468,12 @@ switch simState
             % Go back to variable init state and re-initialize the
             % simulation
             send2Py.state = true;
-            simState = 2;
+            simState = "reset_sim";
         else
-            simState = -1;
+            simState = "undefined";
         end
 
-    otherwise % Should be unreachable
+    otherwise % Should be unreachable, if reached end simulation
         endSim = true;
 end
 end

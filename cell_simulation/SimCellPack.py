@@ -10,7 +10,7 @@ class SimCellPack:
 # This class calls a cell simulation executable with the specified parameters
     # Must be called from within rl_balance
     
-    def __init__(self, cellModel, numCells, simCycles, sampleFactor, utilization):
+    def __init__(self, cellModel, numCells, simCycles, seed, balancing, sampleFactor, utilization):
         # Initialize the Cell Simulation class
         
         self.simSubProcess = None
@@ -19,7 +19,10 @@ class SimCellPack:
         self.numCells = numCells
         self.simCycles = simCycles
 
+        self.seed = seed
+
         self.cellModels = ["A12", "ATL", "E1", "E2", "P14", "SAM"]
+        self.balancingTypes = ["active", "passive"]
 
         try:
             index = os.getcwd().split("\\").index("rl_balance")
@@ -34,7 +37,12 @@ class SimCellPack:
             exit("Cell model specified not in the list: " + self.cellModels)
         else:
             self.cellModelPath = "\"" + self.modelsDir + "\\data\\cell_models\\" + cellModel + "model.mat\""
-            
+
+        if balancing not in self.balancingTypes:
+            exit("Balancing type specified not in the list: " + self.balancingTypes)
+        else:
+            self.balancing = balancing
+    
         self.profilePath = "\"" + self.modelsDir + "\\data\\drive_cycle_profiles\\us60Power.mat\""
 
         self.cellRandOpts = "[0,1,1,1,1,1]"
@@ -48,9 +56,9 @@ class SimCellPack:
     # Starts the execution of the cell executable simulator based on the configured parameters
         self.simCmd = 0
         
-        self.cmdExe = " ".join([self.simExecutable, str(self.numCells), str(self.simCycles),    \
-                                self.profilePath, self.cellModelPath, self.cellRandOpts,        \
-                                str(self.sampleFactor), str(self.utilization)])
+        self.cmdExe = " ".join([self.simExecutable, str(self.numCells), str(self.simCycles),        \
+                                self.profilePath, self.cellModelPath, str(self.seed), self.balancing,    \
+                                self.cellRandOpts, str(self.sampleFactor), str(self.utilization)])
                    
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
