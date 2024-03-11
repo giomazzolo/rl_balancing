@@ -168,5 +168,10 @@ cell_simulation/includedSupportPackages.txt
 cell_simulation/mccExcludedFiles.log
 cell_simulation/readme.txt
 
+
+gym/
 pponorm_tensorboard_log/
+pponormtest/
 tmp/
+simCell_mmap_out.dat
+simCell_mmap_in.dat
