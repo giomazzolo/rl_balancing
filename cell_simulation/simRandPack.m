@@ -12,7 +12,7 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns, Nc, cycleFile, model, seed, balancing, randOptions, filename, sampleFactor, utilizationPercent)
+function packData = simRandPack(Ns, Nc, cycleFile, model, seed, balancing, randOptions, filename, sampleFactor, usageArray)
 
 % State machine variable to configure the simulation by steps and allow
 % resetting of the simulation in real time
@@ -42,7 +42,8 @@ switch simState
 
         tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
         sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
-        profile = load(cycleFile, '-ascii'); % e.g., 'uddsPower.txt'
+        profile = load(cycleFile); % e.g., 'uddsPower.txt'
+        profile_len = length(profile.power_per_cell);
         
         if ~isdeployed; addpath ..\helper_function\; end
         
@@ -60,9 +61,9 @@ switch simState
         minSOC = 0.10; % cell SOC when pack is "fully discharged"
         
         % Time in seconds the simulation will simulate the cells under use
-        % and no use in a 24hr period.
-        utilizationInSec = utilizationPercent * 24 * 60 * 60;
-        restingInSec = (1-utilizationPercent) * 24 * 60 * 60;  
+        % and rest
+        usageInSec = usageArray(1) * 60 * 60;
+        restingInSec = usageArray(2) * 60 * 60; 
         
         switch balancing
             case "passive"
@@ -163,7 +164,7 @@ switch simState
 
         simState = "sim_wait"; % Next state
 
-        utilizationCounter = 0;
+        usageCounter = 0;
         restingCounter = 0;
         
         while theCycle <= Nc
@@ -177,7 +178,7 @@ switch simState
             switch( theState )
                 case 'discharge'
                     % Get instantaneous demanded pack power, repeating profile
-                    P = profile(rem(disCnt,length(profile))+1);
+                    P = profile.power_per_cell(rem(disCnt,profile_len)+1) * Ns;
                     % Compute demanded pack current based on unloaded voltage
                     I = V/(2*R) - sqrt(V^2/R^2 - 4*P/R)/2;
                     % Default cell current = pack current
@@ -192,14 +193,14 @@ switch simState
                         fprintd('charging... ');
                     end
 
-                    if utilizationCounter >= utilizationInSec
+                    if usageCounter >= usageInSec
                         fprintd('resting... ');
                         theState = 'resting';
-                        utilizationCounter = 0;
+                        usageCounter = 0;
                     end
 
                     disCnt = disCnt + 1;
-                    utilizationCounter = utilizationCounter + 1;
+                    usageCounter = usageCounter + 1;
 
                 case 'charge'
                     % start charging @ 6.6kW, then taper
@@ -240,7 +241,7 @@ switch simState
 
                     % Sampling counter only increased during resting fase
                     % when simulation is balancing passively
-                    sample_cnt = sample_cnt + 1;
+                    % sample_cnt = sample_cnt + 1;
 
                 otherwise
                     error('charge/discharge state has been corrupted')
@@ -290,7 +291,7 @@ switch simState
          
             end
         
-            %sample_cnt = sample_cnt + 1;
+            sample_cnt = sample_cnt + 1;
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         end % end while
@@ -305,7 +306,7 @@ switch simState
 
         simState = "sim_wait"; % Next state
 
-        utilizationCounter = 0;
+        usageCounter = 0;
         restingCounter = 0;
         
         while theCycle <= Nc
@@ -334,14 +335,14 @@ switch simState
                         fprintd('charging... ');
                     end
 
-                    if utilizationCounter >= utilizationInSec
+                    if usageCounter >= usageInSec
                         fprintd('resting... ');
                         theState = 'resting';
-                        utilizationCounter = 0;
+                        usageCounter = 0;
                     end
 
                     disCnt = disCnt + 1;
-                    utilizationCounter = utilizationCounter + 1;
+                    usageCounter = usageCounter + 1;
 
                     sample_cnt = sample_cnt + 1;
 

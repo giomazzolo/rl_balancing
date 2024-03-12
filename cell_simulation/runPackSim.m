@@ -1,8 +1,8 @@
 % compile: mcc -I helper_function\ -I data\ -m runPackSim.m
 
-% pack = runPackSim("3","1",'data/drive_cycle_profiles/uddsPower.mat',"data/cell_models/P14model_dynamic.mat",'[0,1,1,1,1,1]',"15", "0.8")
+% pack = runPackSim("3","1",'data/drive_cycle_profiles/P14_us06_profile.mat',"data/cell_models/P14model.mat", "1", "passive", '[0,1,1,1,1,1]',"15", "[4, 2]") 
 
-function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, randOps, sampleFactor, utilizationPercent)
+function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, randOps, sampleFactor, usageArray)
 
     filename = "simCell";
 
@@ -23,7 +23,8 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, ra
     % Percentage of time per day that the battery is under use (charging
     % and discharging). 1 - utilizationPercent is percentage of time per
     % day the battery is under resting conditions.
-    utilizationPercent = str2double(utilizationPercent);
+    usageArray = strrep(usageArray,","," ");
+    usageArray = str2num(usageArray); %#ok<ST2NM> 
 
     seed = str2double(seed);
 
@@ -31,7 +32,7 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, ra
  
     if ~isdeployed; addpath ..\data; end
     
-    % "..\data\P14model_dynamic.mat"
+    % "..\data\P14model.mat"
     load(cellModel, "model"); % Data Obtained from Dynamic Processing
     
     % Dynamic model with milti temperature feature and different cell models
@@ -51,7 +52,7 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, ra
 %     lOpt = 1; % random cell leakage currents
 %     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
     
-    packData = simRandPack(Ns,Nc,cycleFile,model,seed,balancing,randOps,filename,sampleFactor,utilizationPercent);
+    packData = simRandPack(Ns,Nc,cycleFile,model,seed,balancing,randOps,filename,sampleFactor,usageArray);
 
 %     f = figure();
 %     plot(packData.storez');

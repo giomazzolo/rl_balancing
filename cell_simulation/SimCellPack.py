@@ -5,12 +5,17 @@ import signal
 
 import sys,os
 
+cellModels = ["E1", "E2", "P14"]
+        
+balancingTypes = ["active", "passive"]
+
+drive_cycle_profiles = ["sc03", "bcdc", "ftp", "hwfet", "nycc", "ucds", "us06", "udds"]
 
 class SimCellPack:
 # This class calls a cell simulation executable with the specified parameters
     # Must be called from within rl_balance
     
-    def __init__(self, cellModel, numCells, simCycles, seed, balancing, sampleFactor, utilization):
+    def __init__(self, cellModel, numCells, simCycles, seed, profile, balancing, sampleFactor, utilization):
         # Initialize the Cell Simulation class
         
         self.simSubProcess = None
@@ -21,35 +26,42 @@ class SimCellPack:
 
         self.seed = seed
 
-        self.cellModels = ["A12", "ATL", "E1", "E2", "P14", "SAM"]
-        self.balancingTypes = ["active", "passive"]
+        # Cell models available for the simulation
+        # ["A12", "ATL", "SAM"] skipped cell models
 
         try:
-            index = os.getcwd().split("\\").index("rl_balance")
+            index = os.getcwd().split("\\").index("rl_balancing")
         except:
-            exit("rl_balance folder not found, make sure to run this script inside rl_balance folder.")
+            print(("rl_balance folder not found, make sure to run this script inside rl_balancing folder."))
+            exit
 
         self.modelsDir = "\\".join(os.getcwd().split("\\")[:index+1]) + "\\cell_simulation"
         
         self.simExecutable = "\"" + self.modelsDir + "\\runPackSim.exe\""
 
-        if cellModel not in self.cellModels:
-            exit("Cell model specified not in the list: " + self.cellModels)
+        if cellModel not in cellModels:
+            print("Cell model specified not in the list: " + str(cellModels))
+            exit()
         else:
             self.cellModelPath = "\"" + self.modelsDir + "\\data\\cell_models\\" + cellModel + "model.mat\""
+        
+        if profile not in drive_cycle_profiles:
+            print("Drive cycle profile specified not in the list: " + str(drive_cycle_profiles))
+            exit()
+        else:        
+            self.profilePath = "\"" + self.modelsDir + "\\data\\drive_cycle_profiles\\" + cellModel + "_" + profile + "_profile.mat\""
 
-        if balancing not in self.balancingTypes:
-            exit("Balancing type specified not in the list: " + self.balancingTypes)
+        if balancing not in balancingTypes:
+            print("Balancing type specified not in the list: " + balancingTypes)
+            exit()
         else:
             self.balancing = balancing
-    
-        self.profilePath = "\"" + self.modelsDir + "\\data\\drive_cycle_profiles\\us60Power.mat\""
 
         self.cellRandOpts = "[0,1,1,1,1,1]"
 
         self.sampleFactor = sampleFactor
 
-        self.utilization = utilization
+        self.utilization =  "\"" + str(utilization).replace(" ", "") + "\""
         
         
     def startSim(self):
@@ -58,7 +70,7 @@ class SimCellPack:
         
         self.cmdExe = " ".join([self.simExecutable, str(self.numCells), str(self.simCycles),        \
                                 self.profilePath, self.cellModelPath, str(self.seed), self.balancing,    \
-                                self.cellRandOpts, str(self.sampleFactor), str(self.utilization)])
+                                self.cellRandOpts, str(self.sampleFactor), self.utilization])
                    
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
