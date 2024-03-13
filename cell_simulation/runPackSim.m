@@ -1,8 +1,9 @@
 % compile: mcc -I helper_function\ -I data\ -m runPackSim.m
 
-% pack = runPackSim("3","1",'data/drive_cycle_profiles/P14_us06_profile.mat',"data/cell_models/P14model.mat", "1", "passive", '[0,1,1,1,1,1]',"15", "[4, 2]") 
+% pack = runPackSim("3","15",'data/drive_cycle_profiles/P14_us06_profile.mat',"data/cell_models/P14model.mat", "1", "passive", "all",'[0,1,1,1,1,1]',"15", "[2, 2]") 
+% pack = runPackSim("3","15",'data/drive_cycle_profiles/P14_us06_profile.mat',"data/cell_models/P14model.mat", "1", "active", "all",'[0,1,1,1,1,1]',"15", "[2, 2]")
 
-function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, randOps, sampleFactor, usageArray)
+function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, sendSOCsWhen, randOps, sampleFactor, usageArray)
 
     filename = "simCell";
 
@@ -52,7 +53,7 @@ function packData = runPackSim(Ns, Nc, cycleFile, cellModel, seed, balancing, ra
 %     lOpt = 1; % random cell leakage currents
 %     randOps = [tOpts, qOpt, rOpt, sdOpt, cOpt, lOpt];
     
-    packData = simRandPack(Ns,Nc,cycleFile,model,seed,balancing,randOps,filename,sampleFactor,usageArray);
+    packData = simRandPack(Ns,Nc,cycleFile,model,seed,balancing,sendSOCsWhen,randOps,filename,sampleFactor,usageArray);
 
 %     f = figure();
 %     plot(packData.storez');

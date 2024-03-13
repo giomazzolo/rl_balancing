@@ -11,11 +11,13 @@ balancingTypes = ["active", "passive"]
 
 drive_cycle_profiles = ["sc03", "bcdc", "ftp", "hwfet", "nycc", "ucds", "us06", "udds"]
 
+getSOCsWhenList = ["all", "charge", "discharge", "dis/charge", "rest"]
+
 class SimCellPack:
 # This class calls a cell simulation executable with the specified parameters
     # Must be called from within rl_balance
     
-    def __init__(self, cellModel, numCells, simCycles, seed, profile, balancing, sampleFactor, utilization):
+    def __init__(self, cellModel, numCells, simCycles, seed, profile, balancing, getSOCsWhen, sampleFactor, utilization):
         # Initialize the Cell Simulation class
         
         self.simSubProcess = None
@@ -57,6 +59,12 @@ class SimCellPack:
         else:
             self.balancing = balancing
 
+        if getSOCsWhen not in getSOCsWhenList:
+            print("getSOCS type specified not in the list: " + getSOCsWhenList)
+            exit()
+        else:
+            self.getSOCsWhen = getSOCsWhen
+
         self.cellRandOpts = "[0,1,1,1,1,1]"
 
         self.sampleFactor = sampleFactor
@@ -70,7 +78,7 @@ class SimCellPack:
         
         self.cmdExe = " ".join([self.simExecutable, str(self.numCells), str(self.simCycles),        \
                                 self.profilePath, self.cellModelPath, str(self.seed), self.balancing,    \
-                                self.cellRandOpts, str(self.sampleFactor), self.utilization])
+                                self.getSOCsWhen, self.cellRandOpts, str(self.sampleFactor), self.utilization])
                    
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
