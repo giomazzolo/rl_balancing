@@ -82,7 +82,7 @@ class SimCellPack:
                    
         self.simSubProcess = subprocess.Popen(self.cmdExe, stdout=subprocess.PIPE, shell=True)
 
-        self.mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=self.numCells+1, out_size=self.numCells+1, blocking=True)
+        self.mmaptx = mmapTx.Mmaptx(name="simCell", format_type="d", in_size=(self.numCells*2)+1, out_size=self.numCells+1, blocking=True)
 
 
     def getSimStep(self):

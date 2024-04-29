@@ -12,7 +12,7 @@
 % --------------------------------------------------------------------
 
 
-function packData = simRandPack(Ns, Nc, cycleFile, model, seed, balancing, sendSOCsWhen, randOptions, filename, sampleFactor, usageArray)
+function packData = simRandPack(Ns, Nc, profile, model, seed, balancing, sendSOCsWhen, randOptions, filename, sampleFactor, usageArray)
 
 % State machine variable to configure the simulation by steps and allow
 % resetting of the simulation in real time
@@ -34,18 +34,23 @@ switch nextSimState
         m_out = memmapfile(strcat(filename,'_mmap_in.dat'),'Format','double');
         m_out.Writable = true;
         send2Py.sync = 1.0;
-        %send2Py.state = true;
-        outsize = length(m_out.Data)-2;        
+        send2Py.state = false;
+        
+        % Offsets
+        offst.sync = 1;
+        offst.state = 2;
+        offst.z = 3; % SOC offset for mmap output
+        offst.p = offst.z + Ns; % cumulative power offset for mmap output
 
     case "init_vars"
     %% Initialize variables
 
         tOpt = randOptions(1); qOpt = randOptions(2); rOpt = randOptions(3);
         sdOpt = randOptions(4); cOpt = randOptions(5); lOpt = randOptions(6);
-        profile = load(cycleFile); % e.g., 'uddsPower.txt'
+        %profile = load(cycleFile); % e.g., 'uddsPower.txt'
         profile_len = length(profile.power_per_cell);
         
-        if ~isdeployed; addpath ..\helper_function\; end
+        if ~isdeployed; addpath helper_function\; end
         
         % ------------------------------------------------------------------
         % Create storage for all cell states after completion of each cycle
@@ -83,7 +88,8 @@ switch nextSimState
         sample_cnt = 0;        
         %Balancing parameters
         
-        z = maxSOC*ones(Ns,1); % start fully charged
+        z = maxSOC*ones(Ns,1); % SOC start fully charged
+        p = zeros([Ns 1]); % Cumulative power of each cell
         irc = zeros(Ns,1); % at rest
         ik = zeros([Ns 1]); % current experienced by each cell
 
@@ -146,6 +152,7 @@ switch nextSimState
     case "reset_sim"
     % Reset starting parameters to restart simulation
         z = maxSOC*ones(Ns,1); % start fully charged
+        p = zeros(Ns,1); % power at 0
         irc = zeros(Ns,1); % at rest
         ik = zeros([Ns 1]); % current experienced by each cell
         % Downsampling factor counter
@@ -264,6 +271,9 @@ switch nextSimState
             z = z - (1/3600)*ik./q;
             % Update resistor currents
             irc = rc.*irc + (1-rc).*ik;
+            
+            % Update cumulative power for each cell
+            p = p + abs(v.*ik);
 
             %% Balancing Data sent and recieved here
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -271,10 +281,11 @@ switch nextSimState
             if sample_cnt >= sampleFactor % Downsampling
                 sample_cnt = 0;
         
-                % Write data to memmap file        
-                m_out.Data(3:end) = z(1:outsize);
-                m_out.Data(2) = send2Py.state;
-                m_out.Data(1) = send2Py.sync;
+                % Write data to memmap file
+                m_out.Data(offst.p : offst.p + Ns-1) = p(1:Ns); % Power
+                m_out.Data(offst.z : offst.z + Ns-1) = z(1:Ns); % SOC
+                m_out.Data(offst.state) = send2Py.state;
+                m_out.Data(offst.sync) = send2Py.sync;
         
                 % Memory map sync
                 while m_in.Data(1) ~= send2Py.sync; end % blocking wait
@@ -430,6 +441,9 @@ switch nextSimState
             z = z - (1/3600)*ik./q;
             % Update resistor currents
             irc = rc.*irc + (1-rc).*ik;
+            
+            % Update cumulative power of each cell
+            p = p + abs(v.*ik);
 
             %% Balancing Data sent and recieved here
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -437,10 +451,11 @@ switch nextSimState
             if sample_cnt >= sampleFactor % Downsampling
                 sample_cnt = 0;
         
-                % Write data to memmap file        
-                m_out.Data(3:end) = z(1:outsize);
-                m_out.Data(2) = send2Py.state;
-                m_out.Data(1) = send2Py.sync;
+                % Write data to memmap file
+                m_out.Data(offst.p : offst.p + Ns-1) = p(1:Ns); % Power
+                m_out.Data(offst.z : offst.z + Ns-1) = z(1:Ns); % SOC
+                m_out.Data(offst.state) = send2Py.state;
+                m_out.Data(offst.sync) = send2Py.sync;
         
                 % Memory map sync
                 while m_in.Data(1) ~= send2Py.sync; end % blocking wait
@@ -496,9 +511,10 @@ switch nextSimState
        
         % Communicate that somulation has finished
         send2Py.state = false;
-        %m_out.Data(3:end) = z(1:outsize);
-        m_out.Data(2) = send2Py.state;
-        m_out.Data(1) = send2Py.sync;
+        m_out.Data(offst.p : offst.p + Ns-1) = p(1:Ns); % Power
+        m_out.Data(offst.z : offst.z + Ns-1) = z(1:Ns); % SOC
+        m_out.Data(offst.state) = send2Py.state;
+        m_out.Data(offst.sync) = send2Py.sync;
 
         % Wait for command
         while m_in.Data(1) ~= send2Py.sync; end % blocking wait
